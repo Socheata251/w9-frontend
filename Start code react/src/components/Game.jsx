@@ -28,85 +28,86 @@ function createLogHeal(healing) {
 }
 
 function Game() {
-  // ----------------------------------------------------------------------------------------------------------
-  // STATES & VARIABLES
-  // ----------------------------------------------------------------------------------------------------------
 
-  const [playerHP, setPlayerHP]   = useState(100); 
-  const [monsterHP, setMonsterHP] = useState(100); 
-  const [turn, setTurn]           = useState(0);   
-  const [logs, setLogs]           = useState([]); 
+  // ============================================================
+  // STATES
+  // ============================================================
+
+  const [playerHP,  setPlayerHP]  = useState(100); // player starts with 100 HP
+  const [monsterHP, setMonsterHP] = useState(100); // monster starts with 100 HP
+  const [turn,      setTurn]      = useState(0);   // counts how many turns passed
+  const [logs,      setLogs]      = useState([]);  // list of battle messages
+
   const isGameOver = playerHP <= 0 || monsterHP <= 0;
-  const gameResult =
-    playerHP <= 0 && monsterHP <= 0 ? "draw" :
-    monsterHP <= 0                  ? "win"  :
-    playerHP  <= 0                  ? "lose" : null;
+  let gameResult = null;
+  if (playerHP <= 0 && monsterHP <= 0) {
+    gameResult = "draw"; 
+  } else if (monsterHP <= 0) {
+    gameResult = "win";  
+  } else if (playerHP <= 0) {
+    gameResult = "lose"; 
+  }
   const specialReady = turn > 0 && turn % 3 === 0;
+  function clampHP(hp) {
+    if (hp < 0)   return 0;   
+    if (hp > 100) return 100; 
+    return hp;                
+  }
 
-  // ----------------------------------------------------------------------------------------------------------
-  // BUTTONS EVENT FUNCTIONS
-  // ----------------------------------------------------------------------------------------------------------
-  function clampHP(value) {
-    return Math.max(0, Math.min(100, value));
+  function addLog(message) {
+    setLogs(function(oldLogs) {
+      return [...oldLogs, message];
+    });
   }
-  function addLogs(newEntries) {
-    setLogs((prev) => [...prev, ...newEntries].slice(-50));
-  }
-  function monsterAttack(currentPlayerHP) {
-    const dmg = getRandomValue(8, 20);
-    setPlayerHP(clampHP(currentPlayerHP - dmg));
-    return createLogAttack(false, dmg); 
-  }
+
+
+  // ============================================================
+  // BUTTON FUNCTIONS
+  // ============================================================
   function handleAttack() {
-    const dmg        = getRandomValue(5, 15);
-    const newMonHP   = clampHP(monsterHP - dmg);
-    const playerLog  = createLogAttack(true, dmg); 
+ 
+    const playerDamage = getRandomValue(5, 15);
+    const newMonsterHP = clampHP(monsterHP - playerDamage);
+    setMonsterHP(newMonsterHP);
+    addLog(" Player attacks Monster for " + playerDamage + " damage!");
 
-    setMonsterHP(newMonHP);
-    setTurn((t) => t + 1);
-
-    if (newMonHP > 0) {
-      const monsterLog = monsterAttack(playerHP);
-      addLogs([playerLog, monsterLog]);
-    } else {
-      addLogs([playerLog]);
+    if (newMonsterHP > 0) {
+      const monsterDamage = getRandomValue(8, 20);
+      setPlayerHP(clampHP(playerHP - monsterDamage));
+      addLog(" Monster attacks Player for " + monsterDamage + " damage!");
     }
+
+    setTurn(turn + 1);
   }
 
   function handleSpecial() {
-    const dmg       = getRandomValue(12, 25);
-    const newMonHP  = clampHP(monsterHP - dmg);
-    const playerLog = createLogAttack(true, dmg);
-
-    setMonsterHP(newMonHP);
-    setTurn((t) => t + 1);
-
-    if (newMonHP > 0) {
-      const monsterLog = monsterAttack(playerHP);
-      addLogs([playerLog, monsterLog]);
-    } else {
-      addLogs([playerLog]);
+    const playerDamage = getRandomValue(12, 25);
+    const newMonsterHP = clampHP(monsterHP - playerDamage);
+    setMonsterHP(newMonsterHP);
+    addLog(" Player uses SPECIAL for " + playerDamage + " damage!");
+    if (newMonsterHP > 0) {
+      const monsterDamage = getRandomValue(8, 20);
+      setPlayerHP(clampHP(playerHP - monsterDamage));
+      addLog("Monster attacks Player for " + monsterDamage + " damage!");
     }
+    setTurn(turn + 1);
   }
-
   function handleHeal() {
-    const healing    = getRandomValue(10, 20);
-    const newPlHP    = clampHP(playerHP + healing);
-    const healLog    = createLogHeal(healing);
+    const healAmount  = getRandomValue(10, 20);
+    const newPlayerHP = clampHP(playerHP + healAmount);
+    setPlayerHP(newPlayerHP);
+    addLog("Player heals for " + healAmount + " HP!");
 
-    setPlayerHP(newPlHP);         
-    const monsterLog = monsterAttack(newPlHP); 
-    addLogs([healLog, monsterLog]);
-    setTurn((t) => t + 1);
+    const monsterDamage = getRandomValue(8, 20);
+    setPlayerHP(clampHP(newPlayerHP - monsterDamage));
+    addLog(" Monster attacks Player for " + monsterDamage + " damage!");
+    setTurn(turn + 1);
   }
-
 
   function handleSurrender() {
     setPlayerHP(0);
-    addLogs([{ isPlayer: true, isDamage: true, text: " gave up and died." }]);
-    setTurn((t) => t + 1);
+    addLog(" Player gave up!");
   }
-
   function handleNewGame() {
     setPlayerHP(100);
     setMonsterHP(100);
@@ -114,81 +115,59 @@ function Game() {
     setLogs([]);
   }
 
-  // ----------------------------------------------------------------------------------------------------------
-  // JSX FUNCTIONS
-  // ----------------------------------------------------------------------------------------------------------
 
-  function renderHealthBar(label, hp) {
-    return (
+  // ============================================================
+  //JSX
+  // ============================================================
+  return (
+    <>
       <section className="container">
-        <h2>{label} Health</h2>
+        <h2>Monster Health</h2>
         <div className="healthbar">
-          <div
-            className="healthbar__value"
-            style={{ width: `${hp}%` }}
-          />
+          <div className="healthbar__value" style={{ width: monsterHP + "%" }} />
         </div>
       </section>
-    );
-  }
 
-  function renderGameOver() {
-    if (!isGameOver) return null;
-    return (
       <section className="container">
-        <h2>Game Over!</h2>
-        {gameResult === "win"  && <h3>You won! </h3>}
-        {gameResult === "lose" && <h3>You lost! </h3>}
-        {gameResult === "draw" && <h3>It's a draw! </h3>}
-        <button onClick={handleNewGame}>Start New Game</button>
+        <h2>Your Health</h2>
+        <div className="healthbar">
+      
+          <div className="healthbar__value" style={{ width: playerHP + "%" }} />
+        </div>
       </section>
-    );
-  }
+      {isGameOver && (
+        <section className="container">
+          <h2>Game Over!</h2>
+          {gameResult === "win"  && <h3>You won! </h3>}
+          {gameResult === "lose" && <h3>You lost! </h3>}
+          {gameResult === "draw" && <h3>It's a draw! </h3>}
+          <button onClick={handleNewGame}>Start New Game</button>
+        </section>
+      )}
 
-  function renderControls() {
-    if (isGameOver) return null;
-    return (
-      <section id="controls">
-        <button onClick={handleAttack}>ATTACK</button>
-        <button onClick={handleSpecial} disabled={!specialReady}>
-          SPECIAL {specialReady ? "!" : `(${3 - (turn % 3)} turns)`}
-        </button>
-        <button onClick={handleHeal}>HEAL</button>
-        <button onClick={handleSurrender}>KILL YOURSELF</button>
-      </section>
-    );
-  }
+      {!isGameOver && (
+        <section id="controls">
+          <button onClick={handleAttack}>ATTACK</button>
 
-  function renderLogs() {
-    return (
+         
+          <button onClick={handleSpecial} disabled={!specialReady}>
+            {specialReady ? "SPECIAL !" : "SPECIAL (not ready)"}
+          </button>
+
+          <button onClick={handleHeal}>HEAL</button>
+          <button onClick={handleSurrender}>KILL YOURSELF</button>
+        </section>
+      )}
+
       <section id="log" className="container">
         <h2>Battle Log</h2>
         <ul>
-          {logs.map((log, index) => (
-            <li key={index}>
-              <span className={log.isPlayer ? "log--player" : "log--monster"}>
-                {log.isPlayer ? "Player" : "Monster"}
-              </span>
-              <span className={log.isDamage ? "log--damage" : "log--heal"}>
-                {log.text}
-              </span>
-            </li>
-          ))}
+          {logs.map(function(message, index) {
+            return <li key={index}>{message}</li>;
+          })}
         </ul>
       </section>
-    );
-  }
 
-  // ----------------------------------------------------------------------------------------------------------
-  // MAIN TEMPLATE
-  // ----------------------------------------------------------------------------------------------------------
-  return (
-    <>
-      {renderHealthBar("Monster", monsterHP)}
-      {renderHealthBar("Your", playerHP)}
-      {renderGameOver()}
-      {renderControls()}
-      {renderLogs()}
     </>
   );
 }
